@@ -34,3 +34,6 @@ jobs:
         run: |
           echo Add other actions to build,
           echo test, and deploy your project.
+
+      - name: build de l'image docker 
+        run: docker image build -t ghcr.io/joel-henri-ngoube/deploiement-continu/mon-slogan:${{ github.sha }} .

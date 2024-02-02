@@ -35,5 +35,30 @@ jobs:
           echo Add other actions to build,
           echo test, and deploy your project.
 
+      # - name: build de l'image docker 
+      #   run: docker image build -t ghcr.io/joel-henri-ngoube/deploiement-continu/mon-slogan:${{ github.sha }} .
+
       - name: build de l'image docker 
-        run: docker image build -t ghcr.io/joel-henri-ngoube/deploiement-continu/mon-slogan:${{ github.sha }} .
+        run: | 
+          docker image build -t ghcr.io/joel-henri-ngoube/deploiement-continu/mon-slogan:${{ github.sha }} .
+          docker login ghcr.io -u ${{ secrets.DOCKER_USER }} -p ${{ secrets.DOCKER_PASSWORD }}
+          docker image push ghcr.io/joel-henri-ngoube/deploiement-continu/mon-slogan:${{ github.sha }}
+
+      - name: Deploiement sur la VM chez Scaleway
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            docker login ghcr.io -u ${{ secrets.DOCKER_USER }} -p ${{ secrets.DOCKER_PASSWORD }}
+            docker pull ghcr.io/joel-henri-ngoube/deploiement-continu/mon-slogan:${{ github.sha }}
+            docker container stop mon-slogan && docker container rm mon-slogan || echo "Aucun conteneur à stopper"
+            docker container run -d --network web \
+              --name mon-slogan \
+              --label "traefik.http.routers.mon-slogan.rule=Host(\`mon-slogan.etudiant18.floless.fr\`)" \
+              --label "traefik.http.routers.mon-slogan.tls=true" \
+              --label "traefik.http.routers.mon-slogan.tls.certresolver=letsencrypt" \
+              --label "traefik.enable=true" \
+              --label "traefik.docker.network=web" \
+              ghcr.io/joel-henri-ngoube/deploiement-continu/mon-slogan:${{ github.sha }}
